@@ -25,48 +25,28 @@
 //-----------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------
+// Purpose: sage of the macro-based offsetof pattern in constant expressions is 
+//			non-standard; use offsetof defined in the C++ standard library instead
+//-----------------------------------------------------------------------------
+#pragma warning(disable : 4644)
+
+//-----------------------------------------------------------------------------
+// Purpose: unary minus operator applied to unsigned type, result still unsigned
+//-----------------------------------------------------------------------------
+#pragma warning(disable : 4146)
+
+#ifdef WIN32
+
+//-----------------------------------------------------------------------------
 // 
 // Defines
 // 
 //-----------------------------------------------------------------------------
 
-// Indexes to originalmouseparms[] & newmouseparms[]
-#define DI_MSPM_THRESHOLD_X				0
-#define DI_MSPM_THRESHOLD_Y				1
-#define DI_MSPM_ACCELERATE				2
-#define DI_MSPM_MAX						3
-
-// Used when failed to get the original mouse parameters from the systen
-#define DI_MOUSE_DEFAULT_THRESHOLD_X	7 // Default acceleration 1
-#define DI_MOUSE_DEFAULT_THRESHOLD_X	0 // Default acceleration 2
-#define DI_MOUSE_DEFAULT_ACCELERATION	1 // Default speed
-
-// Used when trying to get the acceleration value from the system
-#define DI_MOUSE_ACCELERATION_MIN		1
-#define DI_MOUSE_ACCELERATION_MAX		20
-#define DI_MOUSE_ACCELERATION_DEFAULT	10
-
-// Keyboard repeat delay in milliseconds
-#define DI_KEYBOARD_DELAY_ULTRA_FAST	250
-#define DI_KEYBOARD_DELAY_FASTER		500
-#define DI_KEYBOARD_DELAY_FAST			700
-#define DI_KEYBOARD_DELAY_SLOW			1000 // Default value
-
-// Keyboard repeat rate constants
-#define DI_KEYBOARD_SPEED_MINVAL		0
-#define DI_KEYBOARD_SPEED_MAXVAL		32
-#define DI_KEYBOARD_SPEED_LIMIT_MS		400 // 400ms delay
-
-#define DI_MSTATE_BUTTON0_BIT			(1 << 0) // Left mouse
-#define DI_MSTATE_BUTTON1_BIT			(1 << 1) // Right mouse
-#define DI_MSTATE_BUTTON2_BIT			(1 << 2) // Middle mouse
-#define DI_MSTATE_BUTTON3_BIT			(1 << 3) // Mouse4
-#define DI_MSTATE_BUTTON4_BIT			(1 << 4) // Mouse5
-
-// Returns true if the button was pressed. Whenether the button was
+// Returns TRUE if the button was pressed. Whenether the button was
 // pressed or not indecates the most-significant bit inside the first
 // byte of dwData. (X000 0000)
-#define DI_BUTTON_PRESSED(dwData) ((dwData & 0x80) == 0 ? false : true)
+#define DI_BUTTON_PRESSED(dwData) ((dwData & 0x80) == 0 ? FALSE : TRUE)
 
 // The amount of objecs inside data object
 #define DI_NUM_OBJECTS(object) (sizeof(object) / sizeof(object[0]))
@@ -77,16 +57,17 @@
 // 
 //-----------------------------------------------------------------------------
 
-// Holds true if DI code is initialized
-qboolean    DInput_Initialized;
+// Holds TRUE if DI code is initialized
+qboolean	DInput_Initialized;
 
 // Holds version of the DI interface
-DWORD       DInput_Version;
+DWORD		DInput_Version;
 
 // True if mouse or keyboard are enabled
-qboolean    DInput_MouseEnabled, DInput_KeyboardEnabled;
+qboolean	DInput_MouseEnabled, DInput_KeyboardEnabled;
 
-int			originalmouseparms[DI_MSPM_MAX], newmouseparms[DI_MSPM_MAX] = { 0, 0, 1 };
+int			newmouseparms[DI_MSPM_MAX] = { 0, 0, 1 };
+int			newmouseparams_forcespeed;
 
 // Keyboard repeat-delay setting
 int			keyboard_delay;
@@ -138,10 +119,10 @@ static DIOBJECTDATAFORMAT DInput_ObjectDataFormatOld[] =
 	{ &GUID_XAxis,	FIELD_OFFSET(DI_DataFormatOld, lX),			DIDFT_AXIS | DIDFT_ANYINSTANCE,					NULL },
 	{ &GUID_YAxis,	FIELD_OFFSET(DI_DataFormatOld, lY),			DIDFT_AXIS | DIDFT_ANYINSTANCE,					NULL },
 	{ &GUID_ZAxis,	FIELD_OFFSET(DI_DataFormatOld, lZ),			0x80000000 | DIDFT_AXIS | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatOld, bButtonA),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatOld, bButtonB),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatOld, bButtonC),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatOld, bButtonD),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatOld, bButtonA),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatOld, bButtonB),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatOld, bButtonC),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatOld, bButtonD),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
 };
 
 //-----------------------------------------------------------------------------
@@ -167,14 +148,14 @@ static DIOBJECTDATAFORMAT DInput_ObjectDataFormatNew[] =
 	{ &GUID_XAxis,	FIELD_OFFSET(DI_DataFormatNew, lX),			DIDFT_AXIS | DIDFT_ANYINSTANCE,					NULL },
 	{ &GUID_YAxis,	FIELD_OFFSET(DI_DataFormatNew, lY),			DIDFT_AXIS | DIDFT_ANYINSTANCE,					NULL },
 	{ &GUID_ZAxis,	FIELD_OFFSET(DI_DataFormatNew, lZ),			0x80000000 | DIDFT_AXIS | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonA),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonB),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonC),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonD),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonE),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonF),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonG),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
-	{ nullptr,		FIELD_OFFSET(DI_DataFormatNew, bButtonH),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonA),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonB),	DIDFT_BUTTON | DIDFT_ANYINSTANCE,				NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonC),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonD),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonE),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonF),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonG),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
+	{ NULL,		FIELD_OFFSET(DI_DataFormatNew, bButtonH),	0x80000000 | DIDFT_BUTTON | DIDFT_ANYINSTANCE,	NULL },
 };
 
 //-----------------------------------------------------------------------------
@@ -216,81 +197,81 @@ static DIDATAFORMAT DInput_DataFormatNew =
 //-----------------------------------------------------------------------------
 static BYTE mpBScanNKey[256] =
 {
-//  0				1				2				3					4				5					6				7 
-//  8				9				A				B					C				D					E				F 
-	NULL,			K_ESCAPE,		'1',			'2',				'3',			'4',				'5',			'6', 	// 0 
-	'7',			'8',			'9',			'NULL',				'-',			'=',				K_BACKSPACE,	K_TAB,
-	'q',			'w',			'e',			'r',				't',			'y',				'u',			'i',	// 1  
-	'o',			'p',			'[',			']',				K_ENTER,		K_CTRL,				'a',			's',
-	'd',			'f',			'g',			'h',				'j',			'k',				'l',			';',	// 2  
-	'\'',			'`',			K_SHIFT,		'\\',				'z',			'x',				'c',			'v',
-	'b',			'n',			'm',			',',				'.',			'/',				K_SHIFT,		'*', 	// 3 
-	K_ALT,			' ',			K_CAPSLOCK,		K_F1,				K_F2,			K_F3,				K_F4,			K_F5,
-	K_F6,			K_F7,			K_F8,			K_F9,				K_F10,			K_PAUSE,			NULL,			K_KP_HOME,// 4 
-	K_KP_UPARROW,	K_KP_PGUP,		K_KP_MINUS,		K_KP_LEFTARROW,		K_KP_5,			K_KP_RIGHTARROW,	K_KP_PLUS,		K_KP_END,
-	K_KP_DOWNARROW,	K_KP_PGDN,		K_KP_INS,		K_KP_DEL,			NULL,			NULL,				NULL,			K_F11, 	// 5
-	K_F12,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 6
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 7
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 8
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 9
-	NULL,			NULL,			NULL,			NULL,				K_KP_ENTER,		K_CTRL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// A
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			K_KP_SLASH,			NULL,			NULL,	// B
-	K_ALT,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			K_HOME,	// C
-	K_UPARROW,		K_PGUP,			NULL,			K_LEFTARROW,		NULL,			K_RIGHTARROW,		NULL,			K_END,
-	K_DOWNARROW,	K_PGDN,			K_INS,			K_DEL,				NULL,			NULL,				NULL,			NULL,	// D
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// E
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// F
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
+//  0			1			2			3			4			5			6			7 
+//  8			9			A			B			C			D			E			F 
+	0,			27,			'1',		'2',		'3',		'4',		'5',		'6', 	// 0 
+	'7',		'8',		'9',		'0',		'-',		'=',		K_BACKSPACE,9,
+	'q',		'w',		'e',		'r',		't',		'y',		'u',		'i',	// 1  
+	'o',		'p',		'[',		']',		13 ,		K_CTRL,		'a',		's',
+	'd',		'f',		'g',		'h',		'j',		'k',		'l',		';',	// 2  
+	'\'',		'`',		K_SHIFT,	'\\',		'z',		'x',		'c',		'v',
+	'b',		'n',		'm',		',',		'.',		'/',		K_SHIFT,	'*', 	// 3 
+	K_ALT,		' ',		K_CAPSLOCK,	K_F1,		K_F2,		K_F3,		K_F4,		K_F5,
+	K_F6,		K_F7,		K_F8,		K_F9,		K_F10,		K_PAUSE,	0,			K_KP_HOME, // 4 
+	K_KP_UPARROW,K_KP_PGUP,	K_KP_MINUS,	K_KP_LEFTARROW,K_KP_5,	K_KP_RIGHTARROW,K_KP_PLUS,K_KP_END,
+	K_KP_DOWNARROW,K_KP_PGDN,K_KP_INS,	K_KP_DEL,	0,			0,			0,			K_F11, 	// 5
+	K_F12,		0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 6
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 7
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 8
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 9
+	0,			0,			0,			0,			K_KP_ENTER,	K_CTRL,		0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// A
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			K_KP_SLASH,	0,			0,		// B
+	K_ALT,		0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			K_HOME,	// C
+	K_UPARROW,	K_PGUP,		0,			K_LEFTARROW,0,			K_RIGHTARROW,0,			K_END,
+	K_DOWNARROW,K_PGDN,		K_INS,		K_DEL,		0,			0,			0,			0,		// D
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// E
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// F
+	0,			0,			0,			0,			0,			0,			0,			0,
 };
 
 //-----------------------------------------------------------------------------
 // Purpose: Scan code used inside DInput_SendKeyboardEvent()
 //-----------------------------------------------------------------------------
-static BYTE mpBScanNKey1[256] =
+static BYTE mpBVirtualScanNKey[256] =
 {
-//  0				1				2				3					4				5					6				7 
-//  8				9				A				B					C				D					E				F 
-	NULL,			VK_ESCAPE,		'1',			'2',				'3',			'4',				'5',			'6', 	// 0 
-	'7',			'8',			'9',			'NULL',				VK_OEM_PLUS,	VK_OEM_MINUS,		VK_BACK,		VK_TAB,
-	'Q',			'W',			'E',			'R',				'T',			'Y',				'U',			'I',	// 1
-	'O',			'P',			VK_OEM_4,		VK_OEM_6,			VK_RETURN,		VK_CONTROL,			'A',			'S',
-	'D',			'F',			'G',			'H',				'J',			'K',				'L',			VK_OEM_1,// 2
-	VK_IME_ON,		VK_OEM_3,		VK_SHIFT,		VK_OEM_5,			'Z',			'X',				'C',			'V',
-	'B',			'N',			'M',			VK_OEM_COMMA,		VK_OEM_PERIOD,	VK_OEM_2,			VK_SHIFT,		'j',	// 3
-	VK_MENU,		' ',			VK_CAPITAL,		'p',				'q',			'r',				's',			't',
-	'u',			'v',			'w',			'x',				'y',			VK_PAUSE,			NULL,			'$',	// 4
-	'&',			'!',			'm',			'%',				'e',			'\'',				'k',			'#',
-	'(',			'"',			'`',			'n',				NULL,			NULL,				NULL,			'z',	// 5
-	'{',			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 6
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 7
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 8
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// 9
-	NULL,			NULL,			NULL,			NULL,				VK_RETURN,		VK_CONTROL,			NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// A
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			'o',				NULL,			NULL,	// B
-	VK_MENU,		NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			'$',	// C
-	'&',			'!',			NULL,			'%',				NULL,			'\'',				NULL,			'#',
-	'(',			'"',			'-',			'.',				NULL,			NULL,				NULL,			NULL,	// D
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// E
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,	// F
-	NULL,			NULL,			NULL,			NULL,				NULL,			NULL,				NULL,			NULL,
+//  0			1			2			3			4			5			6			7 
+//  8			9			A			B			C			D			E			F 
+	0,			27,			'1',		'2',		'3',		'4',		'5',		'6', 	// 0 
+	'7',		'8',		'9',		'0',		VK_OEM_MINUS,VK_OEM_PLUS,VK_BACK,	VK_TAB,
+	'Q',		'W',		'E',		'R',		'T',		'Y',		'U',		'I',	// 1  
+	'O',		'P',		VK_OEM_4,	VK_OEM_6,	VK_RETURN,	VK_CONTROL,	'A',		'S',
+	'D',		'F',		'G',		'H',		'J',		'K',		'L',		VK_OEM_1,// 2  
+	VK_OEM_7,	VK_OEM_3,	VK_SHIFT,	VK_OEM_5,	'Z',		'X',		'C',		'V',
+	'B',		'N',		'M',		VK_OEM_COMMA,VK_OEM_PERIOD,	VK_OEM_2,VK_SHIFT,	'j',	// 3
+	VK_MENU,	' ',		VK_CAPITAL,	'p',		'q',		'r',		's',		't',
+	'u',		'v',		'w',		'x',		'y',		VK_PAUSE,	0,			'$',	// 4
+	'&',		'!',		'm',		'%',		'e',		'\'',		'k',		'#',
+	'(',		'"',		'`',		'n',		0,			0,			0,			'z',	// 5
+	'{',		0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 6
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 7
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 8
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// 9
+	0,			0,			0,			0,			VK_RETURN,	VK_CONTROL,	0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// A
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			'o',		0,			0,		// B
+	VK_MENU,	0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			'$',	// C
+	'&',		'!',		0,			'%',		0,			'\'',		0,			'#',
+	'(',		'"',		'-',		'.',		0,			0,			0,			0,		// D
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// E
+	0,			0,			0,			0,			0,			0,			0,			0,
+	0,			0,			0,			0,			0,			0,			0,			0,		// F
+	0,			0,			0,			0,			0,			0,			0,			0,
 };
 
 //-----------------------------------------------------------------------------
@@ -309,16 +290,14 @@ qboolean DInput_Initialize()
 	HMODULE hInstDI;
 	HRESULT hr;
 
-	DInput_Initialized = true;
-
 	// Get current module handle
-	hInstDI = GetModuleHandleA(NULL);
+	hInstDI = ::GetModuleHandleA(NULL);
 
 	// Newer version (0x700)
 	DInput_Version = DIRECTINPUT_VERSION;
 
 	// Register with DirectInput and get an IDirectInput to play with
-	hr = DirectInputCreateA(hInstDI, DIRECTINPUT_VERSION, &g_pdi, nullptr);
+	hr = ::DirectInputCreateA(hInstDI, DIRECTINPUT_VERSION, &g_pdi, NULL);
 
 	// If we fail to initialize newer version, try the older one
 	if (FAILED(hr))
@@ -327,30 +306,31 @@ qboolean DInput_Initialize()
 		DInput_Version = DIRECTINPUT_VERSION_OLD;
 
 		// Try again with older version
-		hr = DirectInputCreateA(hInstDI, DIRECTINPUT_VERSION_OLD, &g_pdi, nullptr);
+		hr = ::DirectInputCreateA(hInstDI, DIRECTINPUT_VERSION_OLD, &g_pdi, NULL);
 
 		// Failed with older version, exit
 		if (FAILED(hr))
-			return false;
+			return FALSE;
 	}
 
 	// Try to create mouse device
 	if (!DInput_CreateMouseDevice())
-		return false;
+		return FALSE;
 
 	// Try to create keyboad device
 	if (!DInput_CreateKeyboardDevice())
-		return false;
+		return FALSE;
 
 	// Check for startup parameters as well as system parameters
 	// for this mouse device.
 	DInput_StartupMouse();
 
 	// Mark devices as enabled
-	DInput_MouseEnabled = true;
-	DInput_KeyboardEnabled = true;
+	DInput_MouseEnabled = TRUE;
+	DInput_KeyboardEnabled = TRUE;
+	DInput_Initialized = TRUE;
 
-	return true;
+	return TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -367,7 +347,7 @@ void DInput_Shutdown()
 		if (DInput_KeyboardEnabled)
 		{
 			IDirectInput_Release(g_pdi);
-			g_pdi = nullptr;
+			g_pdi = NULL;
 		}
 
 		// Release keyboard device
@@ -377,81 +357,65 @@ void DInput_Shutdown()
 			{
 				IDirectInputDevice_Unacquire(g_pKeyboard);
 				IDirectInputDevice_Release(g_pKeyboard);
-				g_pKeyboard = nullptr;
+				g_pKeyboard = NULL;
 			}
 		}
 	}
 
 	// Reset data
-	DInput_Initialized = false;
-	DInput_KeyboardEnabled = false;
-	DInput_MouseEnabled = false;
+	DInput_Initialized = FALSE;
+	DInput_KeyboardEnabled = FALSE;
+	DInput_MouseEnabled = FALSE;
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: Setups parameters of mouse device such as threshhold for X and Y 
+// Purpose: Setup parameters of mouse device such as threshhold for X and Y 
 //			position and mouse sped/acceleration. Also takes care of launch
 //			parameters for mouse settings and gets the keyboard delay and repeat
 //			rate.
 //-----------------------------------------------------------------------------
 void DInput_StartupMouse()
 {
-	BOOL	sysparam;
-
-	INT		nT;
-
-	sysparam = SystemParametersInfoA(SPI_GETMOUSE, NULL, originalmouseparms, NULL);
+	int nT, originalmouseparms[DI_MSPM_MAX];
 
 	// Get the original mouse parameters. If failed to, set the hardcoded default ones.
-	if (!sysparam)
+	if (!::SystemParametersInfoA(SPI_GETMOUSE, NULL, originalmouseparms, NULL))
 	{
 		originalmouseparms[DI_MSPM_THRESHOLD_X] = DI_MOUSE_DEFAULT_THRESHOLD_X;
-		originalmouseparms[DI_MSPM_THRESHOLD_Y] = DI_MOUSE_DEFAULT_THRESHOLD_X;
+		originalmouseparms[DI_MSPM_THRESHOLD_Y] = DI_MOUSE_DEFAULT_THRESHOLD_Y;
 		originalmouseparms[DI_MSPM_ACCELERATE] = DI_MOUSE_DEFAULT_ACCELERATION;
 	}
 
 	// Check if force mouse speed is disabled
-	if (COM_CheckParm("-noforcemspd"))
-	{
-		newmouseparms[DI_MSPM_ACCELERATE] = originalmouseparms[DI_MSPM_ACCELERATE];
-	}
+	if (COM_CheckParm("-noforcemmparms") || COM_CheckParm("-noforcemspd"))
+		newmouseparams_forcespeed = originalmouseparms[DI_MSPM_ACCELERATE];
+	else
+		newmouseparams_forcespeed = TRUE;
 
 	// Check if force mouse threshold is disabled
-	if (COM_CheckParm("-noforcemaccel"))
+	if (COM_CheckParm("-noforcemparms") || COM_CheckParm("-noforcemaccel"))
 	{
 		newmouseparms[DI_MSPM_THRESHOLD_X] = originalmouseparms[DI_MSPM_THRESHOLD_X];
 		newmouseparms[DI_MSPM_THRESHOLD_Y] = originalmouseparms[DI_MSPM_THRESHOLD_Y];
 	}
-
-	// Check if all of the mouse parameters are disabled
-	if (COM_CheckParm("-noforcemparms"))
+	else
 	{
-		newmouseparms[DI_MSPM_THRESHOLD_X] = originalmouseparms[DI_MSPM_THRESHOLD_X];
-		newmouseparms[DI_MSPM_THRESHOLD_X] = originalmouseparms[DI_MSPM_THRESHOLD_Y];
-		newmouseparms[DI_MSPM_ACCELERATE] = originalmouseparms[DI_MSPM_ACCELERATE];
+		newmouseparms[DI_MSPM_THRESHOLD_X] = 0;
+		newmouseparms[DI_MSPM_THRESHOLD_Y] = 0;
 	}
 
-	// Try to get mouse speed
-	sysparam = SystemParametersInfoA(SPI_GETMOUSESPEED, NULL, &newmouseparms[DI_MSPM_ACCELERATE], NULL);
-
-	// If we've failed of the speed we got is bad, set it to default value
-	if (!sysparam)
-	{
-		newmouseparms[DI_MSPM_ACCELERATE] = DI_MOUSE_ACCELERATION_DEFAULT;
-	}
-
-	// The value we've got is bad, cap it to default
-	if (newmouseparms[DI_MSPM_ACCELERATE] < DI_MOUSE_ACCELERATION_MIN || // Check min value
-		newmouseparms[DI_MSPM_ACCELERATE] > DI_MOUSE_ACCELERATION_MAX)	 // Check max value
+	// If we failed of the speed we got is bad, set it to default value
+	if (!SystemParametersInfoA(SPI_GETMOUSESPEED, NULL, &newmouseparms[DI_MSPM_ACCELERATE], NULL) ||
+		// The value wec got is bad, cap it to default
+		newmouseparms[DI_MSPM_ACCELERATE] < DI_MOUSE_ACCELERATION_MIN || // Check min value
+		newmouseparms[DI_MSPM_ACCELERATE] > DI_MOUSE_ACCELERATION_MAX)
 	{
 		newmouseparms[DI_MSPM_ACCELERATE] = DI_MOUSE_ACCELERATION_DEFAULT;
 	}
 
 	// Get the system key repeat delay. The docs specify that a value of 0 equals a 
 	// 250ms delay and a value of 3 equals a 1 sec delay.
-	sysparam = SystemParametersInfoA(SPI_GETKEYBOARDDELAY, NULL, &nT, NULL);
-
-	if (sysparam)
+	if (::SystemParametersInfoA(SPI_GETKEYBOARDDELAY, NULL, &nT, NULL))
 	{
 		switch (nT)
 		{
@@ -518,7 +482,7 @@ qboolean DInput_CreateMouseDevice()
 	// Create the mouse
 	hr = IDirectInput_CreateDevice(g_pdi, GUID_SysMouse, &g_pMouse, NULL);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Set the data format and cooperative level for specific data set
 	if (DInput_Version == DIRECTINPUT_VERSION)
@@ -527,16 +491,16 @@ qboolean DInput_CreateMouseDevice()
 		hr = IDirectInputDevice_SetDataFormat(g_pMouse, &DInput_DataFormatOld);
 
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Get the window handle from SDL
 	SDL_VERSION(&wmInfo.version);
-	SDL_GetWindowWMInfo(pmainwindow, &wmInfo);
+	SDL_GetWindowWMInfo((SDL_Window*)pmainwindow, &wmInfo);
 
 	// Try to set cooperative level
 	hr = IDirectInputDevice_SetCooperativeLevel(g_pMouse, wmInfo.info.win.window, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Use buffered input
 	dipdw.diph.dwSize = sizeof(DIPROPDWORD);
@@ -548,7 +512,7 @@ qboolean DInput_CreateMouseDevice()
 	// Set device property (DIPROPDWORD property information)
 	hr = IDirectInputDevice_SetProperty(g_pMouse, DIPROP_BUFFERSIZE, &dipdw.diph);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Start out by acquiring the mouse
 	IDirectInputDevice_Acquire(g_pMouse);
@@ -556,9 +520,9 @@ qboolean DInput_CreateMouseDevice()
 	// Center out the mouse at startup
 	mouse_x = window_center_x;
 	mstate_di = NULL; // Set to zero for now
-	mouse_x = window_center_y;
+	mouse_y = window_center_y;
 
-	return true;
+	return TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -581,7 +545,7 @@ void DInput_DeactivateMouse()
 	// Destroy that device
 	IDirectInputDevice_Unacquire(g_pMouse);
 	IDirectInputDevice_Release(g_pMouse);
-	g_pMouse = nullptr;
+	g_pMouse = NULL;
 }
 
 //-----------------------------------------------------------------------------
@@ -598,22 +562,22 @@ qboolean DInput_CreateKeyboardDevice()
 	// Create the keyboard
 	hr = IDirectInput_CreateDevice(g_pdi, GUID_SysKeyboard, &g_pKeyboard, NULL);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Set the data format and cooperative level
 	// For keyboard we use the standard data model c_dfDIKeyboard
 	hr = IDirectInputDevice_SetDataFormat(g_pKeyboard, &c_dfDIKeyboard);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Get the window handle from SDL
 	SDL_VERSION(&wmInfo.version);
-	SDL_GetWindowWMInfo(pmainwindow, &wmInfo);
+	SDL_GetWindowWMInfo((SDL_Window*)pmainwindow, &wmInfo);
 
 	// Try to set cooperative level
 	hr = IDirectInputDevice_SetCooperativeLevel(g_pKeyboard, wmInfo.info.win.window, DISCL_EXCLUSIVE | DISCL_FOREGROUND);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Use buffered input
 	dipdw.diph.dwSize = sizeof(DIPROPDWORD);
@@ -625,12 +589,12 @@ qboolean DInput_CreateKeyboardDevice()
 	// Set device property (DIPROPDWORD property information)
 	hr = IDirectInputDevice_SetProperty(g_pKeyboard, DIPROP_BUFFERSIZE, &dipdw.diph);
 	if (FAILED(hr))
-		return false;
+		return FALSE;
 
 	// Start out by acquiring the keyboard
 	IDirectInputDevice_Acquire(g_pKeyboard);
 
-	return true;
+	return TRUE;
 }
 
 //-----------------------------------------------------------------------------
@@ -664,8 +628,16 @@ void DInput_ReadMouseEvents()
 	DIDEVICEOBJECTDATA	od;
 	DWORD				dwElements;
 
+	// The DInput code haven't been initialized yet
+	if (!DInput_Initialized)
+		return;
+
+	// keyboard and mouse weren't enabled
+	if (!DInput_KeyboardEnabled || !DInput_MouseEnabled)
+		return;
+
 	// Loop through all the buffered mouse events
-	while (true)
+	while (TRUE)
 	{
 		dwElements = 1;
 
@@ -691,14 +663,14 @@ void DInput_ReadMouseEvents()
 			// Horizontal mouse movement
 			case DIMOFS_X:
 			{
-				mouse_x += DInput_AccelerateMovement(od.dwData);
+				mouse_x += DInput_AccelerateMovement((int)od.dwData);
 
 				break;
 			}
 			// Vertical mouse movement
 			case DIMOFS_Y:
 			{
-				mouse_y += DInput_AccelerateMovement(od.dwData);
+				mouse_y += DInput_AccelerateMovement((int)od.dwData);
 
 				break;
 			}
@@ -706,7 +678,7 @@ void DInput_ReadMouseEvents()
 			case DIMOFS_Z:
 			{
 				// Wheeled upwards
-				if (static_cast<int>(od.dwData) > 0)
+				if ((int)(od.dwData) > 0)
 				{
 					Key_Event(K_MWHEELUP, TRUE);
 					Key_Event(K_MWHEELUP, FALSE);
@@ -782,14 +754,21 @@ void DInput_ReadKeyboardEvents()
 	HRESULT				hr;
 	DIDEVICEOBJECTDATA	od;
 	DWORD				dwElements;
-
 	int					nTicksCur;
 	
 	// Current timestamp in ms
 	nTicksCur = ::GetTickCount();
 
+	// The DInput code haven't been initialized yet
+	if (!DInput_Initialized)
+		return;
+
+	// keyboard wasn't enabled
+	if (!DInput_KeyboardEnabled)
+		return;
+
 	// Loop through all the bufferedkeyboard events
-	while (true)
+	while (TRUE)
 	{
 		dwElements = 1;
 
@@ -804,7 +783,7 @@ void DInput_ReadKeyboardEvents()
 			hr = IDirectInputDevice_GetDeviceData(g_pKeyboard, sizeof(DIDEVICEOBJECTDATA), &od, &dwElements, NULL);
 		}
 
-		// If we've failed once more or the amount of elements we've get
+		// If we failed once more or the amount of elements we've get
 		// were 0, then we cannot continue
 		if (FAILED(hr) || dwElements == NULL)
 			break;
@@ -836,7 +815,7 @@ void DInput_ReadKeyboardEvents()
 		{
 			if (nTicksCur >= key_ticks_pressed + keyboard_delay)
 			{
-				DInput_SendKeyboardEvent(key_last, mpBScanNKey[key_last], true);
+				DInput_SendKeyboardEvent(key_last, mpBScanNKey[key_last], TRUE);
 				key_ticks_repeat = nTicksCur;
 			}
 		}
@@ -845,7 +824,7 @@ void DInput_ReadKeyboardEvents()
 		{
 			if (nTicksCur >= key_ticks_repeat + keyboard_speed)
 			{
-				DInput_SendKeyboardEvent(key_last, mpBScanNKey[key_last], true);
+				DInput_SendKeyboardEvent(key_last, mpBScanNKey[key_last], TRUE);
 				key_ticks_repeat = nTicksCur;
 			}
 		}
@@ -855,10 +834,10 @@ void DInput_ReadKeyboardEvents()
 //-----------------------------------------------------------------------------
 // Purpose: Sends the keyboard event to the engine dispatcher.
 //-----------------------------------------------------------------------------
-void DInput_SendKeyboardEvent(DWORD dwOfs, unsigned int nChar, bool fDown)
+void DInput_SendKeyboardEvent(DWORD dwOfs, unsigned int nChar, qboolean fDown)
 {
 	// Trap key event
-	eng->TrapMouse_Event(mpBScanNKey1[dwOfs], fDown != false);
+	eng->TrapMouse_Event(mpBVirtualScanNKey[dwOfs], fDown != FALSE);
 
 	// Inform engine
 	Key_Event(nChar, fDown);
@@ -874,7 +853,7 @@ void DInput_GetCursorPos(Point_t* lpPoint)
 	// If DInput isn't initialized, just ask windows
 	if (!DInput_Initialized)
 	{
-		::GetCursorPos(reinterpret_cast<POINT*>(lpPoint));
+		::GetCursorPos((POINT*)lpPoint);
 		return;
 	}
 
@@ -911,55 +890,21 @@ void DInput_SetCursorPos(int X, int Y)
 //-----------------------------------------------------------------------------
 // Purpose: Applies acceleration to either given X or Y value.
 //-----------------------------------------------------------------------------
-int DInput_AccelerateMovement(DWORD dwData)
+int DInput_AccelerateMovement(int pos)
 {
-	DWORD	dwResult;
-	INT		iInverted;
+	if (pos < 0)
+		pos *= -1;
 
-	dwResult = dwData;
-	iInverted = dwData;
+	if (newmouseparams_forcespeed >= 1 && pos > newmouseparms[DI_MSPM_THRESHOLD_X])
+		pos *= 2;
 
-	if (!(int)dwData)
-		iInverted = -dwData;
+	if (newmouseparams_forcespeed >= 2 && pos > newmouseparms[DI_MSPM_THRESHOLD_Y])
+		pos *= 2;
 
-	if (newmouseparms[DI_MSPM_ACCELERATE] > 0 && iInverted > newmouseparms[DI_MSPM_THRESHOLD_X])
-		dwResult = 2 * dwData;
-
-	if (newmouseparms[DI_MSPM_ACCELERATE] > 1 && iInverted > newmouseparms[DI_MSPM_THRESHOLD_Y])
-		dwResult *= 2;
-
-#if 0
-	// 1717986919 (66666667h) as float:
-	// 
-	// 0 | 110 0110 | 0110 0110 0110 0110 0110 0111
-	// ^ sign     ^                               ^
-	//            | exponent                      |
-	//                                       base |
-	//
-	// sign:     0 (positive)
-	// exponent: 110 0110 (102)
-	// base:     0110 0110 0110 0110 0110 0111 (6,710,887)
-
-	{
-		constexpr int64_t a = 1717986919i64;
-		constexpr float b = static_cast<float>(a);
-	}
-	{
-		constexpr int64_t a = 0x66666666;
-		constexpr float b = static_cast<float>(a);
-	}
-
-	int32_t a = dwResult * newmouseparms[DI_MSPM_ACCELERATE];
-	uint64_t b = 1717986919i64 * a;
-	int32_t c = b >> 32;
-	int32_t d = c >> 2;
-	int32_t e = (d >> 31) + d;
-
-	return e;
-#else
-	return dwResult * newmouseparms[DI_MSPM_ACCELERATE];
-#endif
+	return pos * newmouseparms[DI_MSPM_ACCELERATE] / 10;
 }
+
+#endif // Following funciton exists on windows/linux.
 
 //-----------------------------------------------------------------------------
 // Purpose: Depending on passed fEnable, this funciton enables/disabled mouse
@@ -967,6 +912,7 @@ int DInput_AccelerateMovement(DWORD dwData)
 //-----------------------------------------------------------------------------
 void SetMouseEnable(qboolean fEnable)
 {
+#ifdef WIN32
 	RecEngSetMouseEnable(fEnable);
 
 	// Already enabled
@@ -986,7 +932,7 @@ void SetMouseEnable(qboolean fEnable)
 		// Create and acquire new mouse device
 		if (!DInput_CreateMouseDevice())
 		{
-			DInput_KeyboardEnabled = false;
+			DInput_KeyboardEnabled = FALSE;
 			DInput_MouseEnabled = fEnable;
 
 			return;
@@ -1000,4 +946,5 @@ void SetMouseEnable(qboolean fEnable)
 
 	// Update changes
 	DInput_MouseEnabled = fEnable;
+#endif
 }
